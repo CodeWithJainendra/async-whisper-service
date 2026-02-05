@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, render_template, current_app
 import tempfile
 import os
-from .tasks import transcribe_and_embed_task, search_audio_task  # Updated import
+from .tasks import transcribe_and_embed_task, search_audio_task, analyze_transcript_task  # Updated import
 
 main_bp = Blueprint('main', __name__)
 
@@ -55,10 +55,35 @@ def search():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@main_bp.route('/analyze/<task_id>', methods=['POST'])
+def analyze_task(task_id):
+    from . import celery
+    task_result = celery.AsyncResult(task_id)
+    
+    if not task_result.ready():
+        return jsonify({'success': False, 'message': 'Transcription task not finished yet'}), 400
+        
+    if task_result.failed():
+        return jsonify({'success': False, 'message': 'Transcription task failed'}), 400
+        
+    transcript = task_result.result.get('transcript') if isinstance(task_result.result, dict) else ""
+    if not transcript:
+        return jsonify({'success': False, 'message': 'No transcript found to analyze'}), 400
+        
+    # Trigger analysis task
+    analysis_task = analyze_transcript_task.delay(transcript)
+    
+    return jsonify({
+        'success': True,
+        'message': 'Analysis started',
+        'analysis_task_id': analysis_task.id,
+        'status_url': f'/tasks/{analysis_task.id}'
+    }), 202
+
 @main_bp.route('/tasks/<task_id>', methods=['GET'])
 def get_task_status(task_id):
-    from celery.result import AsyncResult
-    task_result = AsyncResult(task_id)
+    from . import celery
+    task_result = celery.AsyncResult(task_id)
     
     response = {
         'task_id': task_id,

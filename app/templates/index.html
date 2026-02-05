@@ -315,9 +315,295 @@
                     <i class="fa-regular fa-copy" style="cursor: pointer;" onclick="copyText()"></i>
                 </div>
                 <div id="transcript-text">Your text will appear here...</div>
+
+                <!-- Magic Analysis Trigger -->
+                <button id="magicAnalyzeBtn" class="magic-btn" style="display: none;">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Magic Analysis
+                </button>
+            </div>
+
+            <!-- AI Scribe Report Card (Hidden by default) -->
+            <div id="aiScribeReport" class="report-card" style="display: none;">
+                <div class="report-header">
+                    <i class="fa-solid fa-file-medical"></i>
+                    AI Clinical Scribe Report
+                </div>
+
+                <div class="report-section">
+                    <h3><i class="fa-solid fa-compress"></i> Executive Summary</h3>
+                    <p id="scribeSummary"></p>
+                </div>
+
+                <div class="report-section">
+                    <h3><i class="fa-solid fa-list-check"></i> Action Items</h3>
+                    <ul id="scribeActions"></ul>
+                </div>
+
+                <div class="report-section" id="scribeEntitiesSection" style="display: none;">
+                    <h3><i class="fa-solid fa-tags"></i> Key Highlights</h3>
+                    <div id="scribeEntities" class="tags-container"></div>
+                </div>
+            </div>
+
+            <!-- --- NEW: Semantic Search Section --- -->
+            <div class="search-section">
+                <div class="search-bar-wrapper">
+                    <i class="fa-solid fa-brain search-icon"></i>
+                    <input type="text" id="searchInput" placeholder="Search inside your audio (Semantic)..."
+                        autocomplete="off">
+                    <button id="searchBtn">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </button>
+                </div>
+                <div id="searchResults" class="search-results">
+                    <!-- Results will be injected here -->
+                </div>
             </div>
         </div>
     </div>
+
+    <style>
+        /* Modern Search Styles */
+        .search-section {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: left;
+        }
+
+        .search-bar-wrapper {
+            display: flex;
+            align-items: center;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 0.5rem 1rem;
+            gap: 0.8rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .search-bar-wrapper:focus-within {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+            background: rgba(15, 23, 42, 0.8);
+        }
+
+        .search-icon {
+            color: var(--primary);
+            font-size: 1.2rem;
+            opacity: 0.8;
+        }
+
+        #searchInput {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: white;
+            font-family: inherit;
+            font-size: 1rem;
+            outline: none;
+            padding: 0.5rem 0;
+        }
+
+        #searchBtn {
+            background: var(--primary);
+            border: none;
+            color: white;
+            padding: 0.6rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #searchBtn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .search-results {
+            margin-top: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            padding-right: 0.5rem;
+        }
+
+        /* Scrollbar styling */
+        .search-results::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .search-results::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .search-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 1rem;
+            font-size: 0.95rem;
+            transition: all 0.3s;
+            cursor: pointer;
+            position: relative;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .search-item:hover {
+            background: rgba(255, 255, 255, 0.07);
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: translateX(4px);
+        }
+
+        .search-item .meta {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--primary);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .search-item .timestamp {
+            color: var(--text-muted);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .no-results {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 2rem;
+            font-style: italic;
+        }
+
+        .searching-loader {
+            text-align: center;
+            padding: 1rem;
+            color: var(--primary);
+        }
+
+        /* AI Scribe Styles */
+        .magic-btn {
+            margin-top: 1rem;
+            background: linear-gradient(90deg, #6366f1, #a855f7);
+            border: none;
+            color: white;
+            padding: 0.6rem 1.2rem;
+            border-radius: 9999px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+            margin-left: auto;
+        }
+
+        .magic-btn:hover {
+            transform: scale(1.05) rotate(-1deg);
+            box-shadow: 0 6px 20px rgba(168, 85, 247, 0.4);
+        }
+
+        .report-card {
+            margin-top: 2rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: left;
+            animation: slideIn 0.5s ease-out;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .report-header {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            color: #a855f7;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 0.8rem;
+        }
+
+        .report-section {
+            margin-bottom: 1.2rem;
+        }
+
+        .report-section h3 {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .report-section p {
+            font-size: 1rem;
+            line-height: 1.5;
+            color: var(--text-main);
+        }
+
+        .report-section ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .report-section li {
+            position: relative;
+            padding-left: 1.5rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+        }
+
+        .report-section li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: #a855f7;
+            font-weight: bold;
+        }
+
+        .tags-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .tag {
+            background: rgba(168, 85, 247, 0.2);
+            color: #d8b4fe;
+            padding: 2px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            border: 1px solid rgba(168, 85, 247, 0.3);
+        }
+    </style>
 
     <script>
         const recordBtn = document.getElementById('recordBtn');
@@ -326,6 +612,18 @@
         const transcriptEl = document.getElementById('transcript-text');
         const detectedLangEl = document.getElementById('detectedLang');
 
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const searchResults = document.getElementById('searchResults');
+
+        const magicAnalyzeBtn = document.getElementById('magicAnalyzeBtn');
+        const aiScribeReport = document.getElementById('aiScribeReport');
+        const scribeSummary = document.getElementById('scribeSummary');
+        const scribeActions = document.getElementById('scribeActions');
+        const scribeEntities = document.getElementById('scribeEntities');
+        const scribeEntitiesSection = document.getElementById('scribeEntitiesSection');
+
+        let lastTaskId = null;
         let mediaRecorder;
         let audioChunks = [];
         let isRecording = false;
@@ -382,8 +680,6 @@
             const formData = new FormData();
             formData.append('audio', audioBlob, 'recording.webm');
 
-            // Language selection removed - Auto detection
-
             try {
                 const response = await fetch('/asr', {
                     method: 'POST',
@@ -393,22 +689,149 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    statusEl.textContent = "Done!";
-                    transcriptEl.textContent = data.transcript;
-
-                    let langCode = data.language || '??';
-                    detectedLangEl.textContent = langCode.toUpperCase();
-
-                    resultArea.classList.add('active');
+                    statusEl.textContent = "Transcription Started!";
+                    lastTaskId = data.task_id;
+                    pollTaskStatus(data.task_id);
                 } else {
-                    statusEl.textContent = "Error processing audio.";
-                    transcriptEl.textContent = data.message || "Unknown error";
-                    resultArea.classList.add('active');
+                    statusEl.textContent = "Error starting process.";
                 }
             } catch (error) {
                 console.error("Error sending audio:", error);
                 statusEl.textContent = "Network error occurred.";
             }
+        }
+
+        async function pollTaskStatus(taskId) {
+            const interval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/tasks/${taskId}`);
+                    const data = await response.json();
+
+                    if (data.status === 'SUCCESS') {
+                        clearInterval(interval);
+                        statusEl.textContent = "Processing Complete!";
+                        transcriptEl.textContent = data.result.transcript;
+                        detectedLangEl.textContent = (data.result.language || '??').toUpperCase();
+                        resultArea.classList.add('active');
+                        magicAnalyzeBtn.style.display = 'flex'; // Show Magic button
+                    } else if (data.status === 'FAILURE') {
+                        clearInterval(interval);
+                        statusEl.textContent = "Processing Failed.";
+                        transcriptEl.textContent = data.error || "Unknown error";
+                        resultArea.classList.add('active');
+                    } else if (data.status === 'PROCESSING') {
+                        statusEl.textContent = data.result?.status || "Processing...";
+                    }
+                } catch (err) {
+                    clearInterval(interval);
+                    console.error("Polling error:", err);
+                }
+            }, 1000);
+        }
+
+        // --- Semantic Search Logic ---
+        async function performSearch() {
+            const query = searchInput.value.trim();
+            if (!query) return;
+
+            searchResults.innerHTML = '<div class="searching-loader"><i class="fa-solid fa-spinner fa-spin"></i> Semantic Search...</div>';
+
+            try {
+                const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+
+                if (data.success && data.results.length > 0) {
+                    searchResults.innerHTML = data.results.map(res => `
+                        <div class="search-item">
+                            <div class="meta">
+                                <span>Segment Match</span>
+                                <span class="timestamp">${res.metadata.start.toFixed(1)}s - ${res.metadata.end.toFixed(1)}s</span>
+                            </div>
+                            <div class="text">${res.text}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    searchResults.innerHTML = '<div class="no-results">No similar segments found. Try uploading more audio!</div>';
+                }
+            } catch (err) {
+                console.error("Search error:", err);
+                searchResults.innerHTML = '<div class="no-results">Search failed. Server might be loading models.</div>';
+            }
+        }
+
+        searchBtn.addEventListener('click', performSearch);
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') performSearch();
+        });
+
+        // Search as you type (with debounce)
+        let debounceTimer;
+        searchInput.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            if (searchInput.value.length > 2) {
+                debounceTimer = setTimeout(performSearch, 500);
+            }
+        });
+
+        // --- AI Clinical Scribe Logic ---
+        magicAnalyzeBtn.addEventListener('click', async () => {
+            if (!lastTaskId) return;
+
+            magicAnalyzeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Analyzing...';
+            magicAnalyzeBtn.disabled = true;
+
+            try {
+                const response = await fetch(`/analyze/${lastTaskId}`, { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    pollAnalysisStatus(data.analysis_task_id);
+                }
+            } catch (err) {
+                console.error("Analysis error:", err);
+                magicAnalyzeBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Magic Analysis';
+                magicAnalyzeBtn.disabled = false;
+            }
+        });
+
+        async function pollAnalysisStatus(taskId) {
+            const interval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/tasks/${taskId}`);
+                    const data = await response.json();
+
+                    if (data.status === 'SUCCESS') {
+                        clearInterval(interval);
+                        displayAnalysis(data.result);
+                    } else if (data.status === 'FAILURE') {
+                        clearInterval(interval);
+                        alert("Magic analysis failed. Check logs.");
+                        magicAnalyzeBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Magic Analysis';
+                        magicAnalyzeBtn.disabled = false;
+                    }
+                } catch (err) {
+                    clearInterval(interval);
+                    console.error("Polling error:", err);
+                }
+            }, 1000);
+        }
+
+        function displayAnalysis(data) {
+            scribeSummary.textContent = data.summary;
+            scribeActions.innerHTML = data.action_items.map(item => `<li>${item}</li>`).join('');
+
+            if (data.entities && data.entities.length > 0) {
+                scribeEntities.innerHTML = data.entities.map(e => `<span class="tag">${e.type}: ${e.value}</span>`).join('');
+                scribeEntitiesSection.style.display = 'block';
+            } else {
+                scribeEntitiesSection.style.display = 'none';
+            }
+
+            aiScribeReport.style.display = 'block';
+            magicAnalyzeBtn.style.display = 'none'; // Hide button once done
+
+            // Scroll to report
+            aiScribeReport.scrollIntoView({ behavior: 'smooth' });
         }
 
         function copyText() {
