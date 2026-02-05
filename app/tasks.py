@@ -160,41 +160,74 @@ def analyze_transcript_task(transcript_text):
     if not transcript_text or len(transcript_text) < 10:
         return {"error": "Transcript too short for analysis"}
 
-    # --- Layer 1: Pattern Matching (Always works, very fast) ---
+    # --- Layer 1: Ollama Integration (High Quality) ---
+    try:
+        from flask import current_app
+        import json
+        import requests
+        
+        ollama_url = f"{current_app.config['OLLAMA_API_BASE_URL']}/api/generate"
+        model = current_app.config['OLLAMA_MODEL']
+        
+        prompt = f"""
+        Analyze the following medical/professional transcript and provide a structured report in JSON format.
+        Transcript: {transcript_text}
+
+        Requirements:
+        1. "summary": A concise 3-sentence executive summary.
+        2. "action_items": A list of clear, actionable tasks or next steps.
+        3. "entities": A list of key entities like "Dates", "Medicines", "Prices", or "Names" with their types.
+
+        Respond ONLY with valid JSON.
+        """
+        
+        response = requests.post(ollama_url, json={
+            "model": model,
+            "prompt": prompt,
+            "stream": False,
+            "format": "json"
+        }, timeout=30)
+        
+        if response.status_code == 200:
+            llm_result = json.loads(response.json().get('response', '{}'))
+            analysis["summary"] = llm_result.get("summary", analysis["summary"])
+            analysis["action_items"] = llm_result.get("action_items", analysis["action_items"])
+            analysis["entities"] = llm_result.get("entities", analysis["entities"])
+            print("Ollama analysis successful!")
+            return analysis
+    except Exception as e:
+        print(f"Ollama integration failed or timed out: {e}. Falling back to pattern matching...")
+
+    # --- Layer 2: Pattern Matching (Reliable Fallback) ---
     import re
     
     # Simple recursive summary (first few sentences)
     sentences = re.split(r'(?<=[.!?]) +', transcript_text)
-    analysis["summary"] = " ".join(sentences[:3]) + "..." if len(sentences) > 3 else transcript_text
+    if not analysis["summary"]:
+        analysis["summary"] = " ".join(sentences[:3]) + "..." if len(sentences) > 3 else transcript_text
 
     # Action Items Extraction (Looking for intent keywords)
-    action_keywords = [
-        "need to", "should", "will", "must", "plan to", "going to", 
-        "task", "todo", "action", "remember to", "don't forget"
-    ]
-    
-    for sentence in sentences:
-        if any(kw in sentence.lower() for kw in action_keywords):
-            clean_item = sentence.strip().capitalize()
-            if clean_item not in analysis["action_items"]:
-                analysis["action_items"].append(clean_item)
+    if not analysis["action_items"]:
+        action_keywords = [
+            "need to", "should", "will", "must", "plan to", "going to", 
+            "task", "todo", "action", "remember to", "don't forget"
+        ]
+        for sentence in sentences:
+            if any(kw in sentence.lower() for kw in action_keywords):
+                clean_item = sentence.strip().capitalize()
+                if clean_item not in analysis["action_items"]:
+                    analysis["action_items"].append(clean_item)
 
     # Key Entities (Dates, Medicines - basic regex)
-    # Date pattern: DD/MM/YY, Mon DD, etc.
-    date_patterns = [r'\d{1,2}[/-]\d{1,2}[/-]\d{2,4}', r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}']
-    for pattern in date_patterns:
-        matches = re.finditer(pattern, transcript_text, re.IGNORECASE)
-        for m in matches:
-            analysis["entities"].append({"type": "DATE", "value": m.group()})
+    if not analysis["entities"]:
+        date_patterns = [r'\d{1,2}[/-]\d{1,2}[/-]\d{2,4}', r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}']
+        for pattern in date_patterns:
+            matches = re.finditer(pattern, transcript_text, re.IGNORECASE)
+            for m in matches:
+                analysis["entities"].append({"type": "DATE", "value": m.group()})
 
-    # --- Layer 2: Advanced NLP (If models are available) ---
-    try:
-        # We could use a T5 or BART model here if loaded, 
-        # but for now we rely on the high-quality pattern matching 
-        # to ensure the "WoW" factor without the "Crash" factor.
-        pass
-    except Exception as e:
-        print(f"Advanced NLP failed: {e}")
+    # --- Layer 3: Advanced Local NLP (Placeholder for BERT/T5 if environment allows) ---
+    # ...
 
     # Deduplicate entities
     analysis["entities"] = [dict(t) for t in {tuple(d.items()) for d in analysis["entities"]}]
