@@ -1,25 +1,29 @@
-# Refactor: Async Transcription Architecture
+# Feature: Semantic Audio Search (RAG)
 
 ## Summary
-Refactoring the existing monolithic Flask application into a scalable, asynchronous architecture using Celery and Redis. This change addresses the performance bottleneck where long-running transcription tasks blocked the HTTP request thread.
+Building upon the async architecture, this PR introduces a **Retrieval-Augmented Generation (RAG)** capability for audio. It transforms the service from a simple transcriber into an **Audio Knowledge Base**.
 
-## Key Changes
-- **Async Processing**: Implemented Celery for background task processing.
-- **Message Broker**: Integrated Redis as the message broker and result backend.
-- **Dockerization**: Added `Dockerfile` and `docker-compose.yml` for fully reproducible local development and deployment.
-- **Structural Refactor**: Moved from single `app.py` to a modular application factory pattern (`app/__init__.py`, `app/routes.py`, `app/tasks.py`).
-- **Resilience**: Added error handling and state updates (PENDING, PROCESSING, SUCCESS) for better UX.
+## Key Features
+- **Semantic Search**: Users can search through audio recordings using natural language queries (e.g., "Budget discussions" matches audio about "cutting expenses").
+- **Vector Embeddings**: integrated `sentence-transformers` to generate 384-dimensional vector embeddings for transcribed segments.
+- **Vector Database**: Integrated **ChromaDB** for efficient storage and similarity search of audio chunks.
 
-## Technical Details
-- **Flask**: Updated to use Blueprints and Application Factory pattern.
-- **Whisper**: Model loading is now handled within the Celery worker process to avoid blocking the API server.
-- **API**:
-    - `POST /asr`: Returns `202 Accepted` immediately with a `task_id`.
-    - `GET /tasks/<task_id>`: Endpoint to poll for status and results.
-    - `POST /asr/full`: Supports translation and transcription.
+## Technical Implementation
+- **Pipeline**: 
+    1.  `Whisper` transcribes audio -> 
+    2.  `Tasks` split text into segments -> 
+    3.  `SentenceTransformer` encodes segments into vectors -> 
+    4.  `ChromaDB` indexes vectors + metadata (start/end timestamps).
+- **New Endpoints**:
+    - `GET /search?q=...`: Performs cosine similarity search against the indexed audio segments.
+
+## Why this matters
+This moves the project into the domain of **AI Engineering**. It demonstrates understanding of:
+- Vector Databases & Embeddings
+- NLP / Semantic Understanding
+- Complex Data Pipelines
 
 ## How to Test
-1. Ensure Docker is installed.
-2. Run `docker-compose up --build`.
-3. Send a POST request to `http://localhost:5011/asr` with an audio file.
-4. Use the returned `status_url` to check progress.
+1.  Transcribe a file: `POST /asr`
+2.  Wait for completion (check `GET /tasks/<id>`).
+3.  Search: `GET /search?q=finance`

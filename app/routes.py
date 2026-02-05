@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, render_template, current_app
 import tempfile
 import os
-from .tasks import transcribe_audio_task, transcribe_full_task
+from .tasks import transcribe_and_embed_task, search_audio_task  # Updated import
 
 main_bp = Blueprint('main', __name__)
 
@@ -15,45 +15,8 @@ def transcribe():
         return jsonify({'success': False, 'message': 'No audio file uploaded'}), 400
 
     audio_file = request.files['audio']
-    
-    # Get optional parameters from request
     translate_to_english = request.form.get('translate', 'false').lower() == 'true'
     
-    # Save to a temporary file that persists so the worker can access it
-    # Note: In production with distributed workers, use shared storage (S3/NFS)
-    # properly configured. For local/docker-compose, volume mount works.
-    
-    # We must assume the worker can see the file. 
-    # Using a relative path in 'uploads' might be safer if we map it.
-    
-    upload_dir = current_app.config.get('UPLOAD_FOLDER', 'uploads')
-    os.makedirs(upload_dir, exist_ok=True)
-    
-    # use a unique filename
-    import uuid
-    filename = f"{uuid.uuid4()}.webm"
-    audio_path = os.path.join(upload_dir, filename)
-    audio_file.save(audio_path)
-
-    # Convert to absolute path for the worker
-    abs_audio_path = os.path.abspath(audio_path)
-
-    task = transcribe_audio_task.delay(abs_audio_path, translate_to_english)
-    
-    return jsonify({
-        'success': True,
-        'message': 'Task submitted',
-        'task_id': task.id,
-        'status_url': f'/tasks/{task.id}'
-    }), 202
-
-@main_bp.route('/asr/full', methods=['POST'])
-def transcribe_full():
-    if 'audio' not in request.files:
-        return jsonify({'success': False, 'message': 'No audio file uploaded'}), 400
-
-    audio_file = request.files['audio']
-    
     upload_dir = current_app.config.get('UPLOAD_FOLDER', 'uploads')
     os.makedirs(upload_dir, exist_ok=True)
     
@@ -61,24 +24,40 @@ def transcribe_full():
     filename = f"{uuid.uuid4()}.webm"
     audio_path = os.path.join(upload_dir, filename)
     audio_file.save(audio_path)
-    
+
     abs_audio_path = os.path.abspath(audio_path)
 
-    task = transcribe_full_task.delay(abs_audio_path)
+    # Use the new task that includes embedding
+    task = transcribe_and_embed_task.delay(abs_audio_path, translate_to_english)
     
     return jsonify({
         'success': True,
-        'message': 'Task submitted',
+        'message': 'Task submitted (Transcription + Indexing)',
         'task_id': task.id,
         'status_url': f'/tasks/{task.id}'
     }), 202
+
+@main_bp.route('/search', methods=['GET'])
+def search():
+    query = request.args.get('q')
+    if not query:
+        return jsonify({'error': 'Missing query parameter "q"'}), 400
+        
+    # Run search synchronously for simplicity (since it's fast usually)
+    # In strict microservices, this might be another async task or a separate read service.
+    try:
+        results = search_audio_task(query)
+        return jsonify({
+            'success': True,
+            'query': query,
+            'results': results
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @main_bp.route('/tasks/<task_id>', methods=['GET'])
 def get_task_status(task_id):
-    from .tasks import transcribe_audio_task # Import here to avoid circular imports? No, tasks.py imports celery
-    # Actually we can inspect result using AsyncResult
     from celery.result import AsyncResult
-    
     task_result = AsyncResult(task_id)
     
     response = {
@@ -93,7 +72,6 @@ def get_task_status(task_id):
     elif task_result.state != 'FAILURE':
         response['result'] = task_result.result
     else:
-        # something went wrong in the background job
         response['error'] = str(task_result.info)
         
     return jsonify(response)
