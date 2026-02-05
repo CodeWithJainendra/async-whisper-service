@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice to Text AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --secondary: #ec4899;
+            --bg-dark: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --success: #10b981;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-dark);
+            background-image:
+                radial-gradient(at 0% 0%, hsla(253, 16%, 7%, 1) 0, transparent 50%),
+                radial-gradient(at 50% 0%, hsla(225, 39%, 30%, 1) 0, transparent 50%),
+                radial-gradient(at 100% 0%, hsla(339, 49%, 30%, 1) 0, transparent 50%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow-x: hidden;
+            padding: 1rem;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 2.5rem 2rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #fff, #cbd5e1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            /* standard property */
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            margin-bottom: 2.5rem;
+            font-size: 1.1rem;
+        }
+
+        /* Language Selector Logic */
+        .language-selector {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 0.5rem;
+            border-radius: 12px;
+            width: fit-content;
+            margin-left: auto;
+            margin-right: auto;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .lang-option {
+            padding: 0.6rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+            color: var(--text-muted);
+            border: 1px solid transparent;
+        }
+
+        .lang-option:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .lang-option.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.3);
+        }
+
+        .mic-wrapper {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 2.5rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .mic-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border: none;
+            color: white;
+            font-size: 2rem;
+            cursor: pointer;
+            z-index: 2;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .mic-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .mic-btn:active {
+            transform: scale(0.95);
+        }
+
+        .mic-btn.recording {
+            background: #ef4444;
+            animation: pulse-red 2s infinite;
+        }
+
+        .pulse-ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: rgba(99, 102, 241, 0.2);
+            z-index: 1;
+            transform: scale(0.8);
+        }
+
+        .recording .pulse-ring {
+            animation: ripple 1.5s linear infinite;
+        }
+
+        @keyframes ripple {
+            0% {
+                transform: scale(0.8);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+
+        @keyframes pulse-red {
+            0% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            }
+
+            70% {
+                box-shadow: 0 0 0 20px rgba(239, 68, 68, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
+        }
+
+        .status-text {
+            height: 24px;
+            margin-bottom: 1rem;
+            font-weight: 500;
+            color: var(--primary);
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .result-area {
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 16px;
+            padding: 1.5rem;
+            text-align: left;
+            min-height: 120px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            position: relative;
+            transition: all 0.3s ease;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .result-area.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .language-tag {
+            background: rgba(99, 102, 241, 0.2);
+            color: var(--primary);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+
+        #transcript-text {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: var(--text-main);
+            white-space: pre-wrap;
+        }
+
+        .loading-dots span {
+            animation: dots 1.4s infinite;
+            opacity: 0;
+            display: inline-block;
+        }
+
+        .loading-dots span:nth-child(2) {
+            animation-delay: .2s;
+        }
+
+        .loading-dots span:nth-child(3) {
+            animation-delay: .4s;
+        }
+
+        @keyframes dots {
+            0% {
+                opacity: 0;
+                transform: translateY(0);
+            }
+
+            50% {
+                opacity: 1;
+                transform: translateY(-3px);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="card">
+            <h1>Voice AI</h1>
+            <p class="subtitle">Select your language</p>
+
+            <!-- Language Selector Removed - Automatic Detection -->
+
+            <div class="mic-wrapper">
+                <div class="pulse-ring"></div>
+                <button id="recordBtn" class="mic-btn">
+                    <i class="fa-solid fa-microphone"></i>
+                </button>
+            </div>
+
+            <div class="status-text" id="status">Tap microphone to start</div>
+
+            <div class="result-area" id="resultArea">
+                <div class="result-header">
+                    <span>DETECTED: <span id="detectedLang" class="language-tag">...</span></span>
+                    <i class="fa-regular fa-copy" style="cursor: pointer;" onclick="copyText()"></i>
+                </div>
+                <div id="transcript-text">Your text will appear here...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const recordBtn = document.getElementById('recordBtn');
+        const statusEl = document.getElementById('status');
+        const resultArea = document.getElementById('resultArea');
+        const transcriptEl = document.getElementById('transcript-text');
+        const detectedLangEl = document.getElementById('detectedLang');
+
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+
+        recordBtn.addEventListener('click', async () => {
+            if (!isRecording) {
+                startRecording();
+            } else {
+                stopRecording();
+            }
+        });
+
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = sendAudioData;
+
+                mediaRecorder.start();
+                isRecording = true;
+                recordBtn.classList.add('recording');
+                recordBtn.innerHTML = '<i class="fa-solid fa-stop"></i>';
+                statusEl.textContent = "Listening...";
+                statusEl.innerHTML += ' <span class="loading-dots"><span>.</span><span>.</span><span>.</span></span>';
+
+                resultArea.classList.remove('active');
+
+            } catch (err) {
+                console.error("Error accessing microphone:", err);
+                statusEl.textContent = "Error: Could not access microphone. Please allow permissions.";
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+                recordBtn.classList.remove('recording');
+                recordBtn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+                statusEl.textContent = "Processing audio...";
+
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+        }
+
+        async function sendAudioData() {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const formData = new FormData();
+            formData.append('audio', audioBlob, 'recording.webm');
+
+            // Language selection removed - Auto detection
+
+            try {
+                const response = await fetch('/asr', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    statusEl.textContent = "Done!";
+                    transcriptEl.textContent = data.transcript;
+
+                    let langCode = data.language || '??';
+                    detectedLangEl.textContent = langCode.toUpperCase();
+
+                    resultArea.classList.add('active');
+                } else {
+                    statusEl.textContent = "Error processing audio.";
+                    transcriptEl.textContent = data.message || "Unknown error";
+                    resultArea.classList.add('active');
+                }
+            } catch (error) {
+                console.error("Error sending audio:", error);
+                statusEl.textContent = "Network error occurred.";
+            }
+        }
+
+        function copyText() {
+            const text = transcriptEl.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const original = statusEl.textContent;
+                statusEl.textContent = "Copied to clipboard!";
+                setTimeout(() => {
+                    statusEl.textContent = original;
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+
+</html>
